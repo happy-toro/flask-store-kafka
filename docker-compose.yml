@@ -1,0 +1,103 @@
+networks:
+  app-network:
+    name: app-network
+    driver: bridge
+
+services:
+  redis:
+    container_name: redis
+    image: redis:6-alpine
+    networks:
+      - app-network
+    ports:
+      - 6379:6379
+    restart: always  
+
+  postgresql-db1:
+    container_name: postgresql-db1
+    image: postgres:14-alpine
+    networks:
+      - app-network
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_HOST_AUTH_METHOD=md5
+      - APP_DB_USER=store_app
+      - APP_DB_PASSWORD=password
+      - APP_DB_NAME=store_db
+    volumes:
+      - ./postgresql-init:/docker-entrypoint-initdb.d/
+      - ./postgresql-data:/var/lib/postgresql/data  
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres" ]
+      timeout: 60s
+      interval: 5s
+      retries: 10
+    restart: always
+
+  kafka-rest:
+    container_name: kafka-rest
+    image: sftan/kafka-rest
+    networks: 
+      - app-network
+    ports: 
+      - 8888:8888
+    environment:
+      - BOOTSTRAP_SERVERS=kafka-1:29091,kafka-2:29092
+    depends_on:
+      - kafka-1
+      - kafka-2
+    restart: always
+
+  flask-store:
+    container_name: flask-store
+    image: sftan/flask-store
+    networks:
+      - app-network
+    ports:
+      - 80:80
+    environment:
+      - JWT_ACCESS_EXPIRES=60
+      - JWT_REFRESH_EXPIRES=120
+      - REDIS_HOST=redis
+      - DATABASE_URL=postgresql://store_app:password@postgresql-db1/store_db
+      - EVENT_URL=http://kafka-rest:8888     
+    depends_on:
+      - redis
+      - postgresql-db1
+      - kafka-rest  
+    restart: always
+
+  audit-consumer-1:
+    container_name: audit-consumer-1
+    image: sftan/audit-consumer
+    environment:
+      - 'ELASTICSEARCH_HOSTS=["es-1:9200", "es-2:9200"]'
+      - KAFKA_BOOTSTRAP_SERVERS="kafka-1:29091,kafka-2:29092"
+    networks:
+      - app-network
+    depends_on:
+      - es-1
+      - es-2
+      - kafka-1
+      - kafka-2
+    restart: always  
+
+  audit-consumer-2:
+    container_name: audit-consumer-2
+    image: sftan/audit-consumer
+    environment:
+      - 'ELASTICSEARCH_HOSTS=["es-1:9200", "es-2:9200"]'
+      - KAFKA_BOOTSTRAP_SERVERS="kafka-1:29091,kafka-2:29092"
+    networks:
+      - app-network
+    depends_on:
+      - es-1
+      - es-2
+      - kafka-1
+      - kafka-2
+    restart: always
+
+          

@@ -1,0 +1,10 @@
+__pycache__
+models/__pycache__
+resources/__pycache__
+postgresql-data/*
+
+*.pyc
+data.db
+jwt.private
+jwt.public
+test.py

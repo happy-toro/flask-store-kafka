@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-store
+  namespace: default
+spec:
+  replicas: 6
+  selector:
+    matchLabels:  
+      app: flask-store
+  template:
+    metadata:
+      labels:
+        app: flask-store
+    spec:
+      containers:
+      - name: flask-store
+        image: sftan/flask-store
+        ports:
+        - containerPort: 80
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://store_app:password@svc-pg-db:5432/store_db"
+        - name: REDIS_HOST
+          value: "svc-redis"
+        - name: REDIS_PORT
+          value: "6379" 
+        - name: JWT_ACCESS_EXPIRES
+          value: "60"
+        - name: JWT_REFRESH_EXPIRES
+          value: "120"
+        - name: EVENT_URL
+          value: "http://svc-kafka-rest:8888"  
+
